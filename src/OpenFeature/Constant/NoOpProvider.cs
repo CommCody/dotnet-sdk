@@ -6,4 +6,9 @@ namespace OpenFeature.Constant
         public const string ReasonNoOp = "No-op";
         public const string Variant = "No-op";
     }
+    
+    internal static class InMemoryProvider 
+    {
+        public const string InMemoryProvidername = "InMemoryProvider";
+    }
 }

@@ -1,0 +1,175 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using OpenFeature.Constant;
+using OpenFeature.Model;
+
+
+namespace OpenFeature.Providers.Memory
+{
+    /// <summary>
+    /// The in memory provider
+    /// </summary>
+    /// <seealso href="https://openfeature.dev/specification/appendix-a#in-memory-provider">In Memory Provider specification</seealso>
+    public class InMemoryFeatureProvider : FeatureProvider {
+
+        private readonly Metadata _metadata = new Metadata(InMemoryProvider.InMemoryProvidername);
+
+        private readonly Dictionary<string, Flag> _flags;
+
+        private ProviderStatus _status = ProviderStatus.NotReady;
+        
+        public override ProviderStatus GetStatus() => this._status;
+
+        public override Metadata GetMetadata() {
+            return this._metadata;
+        }
+
+        public InMemoryFeatureProvider(Dictionary<string, Flag> flags)
+        {
+            ArgumentNullException.ThrowIfNull(flags, nameof(flags));
+            this._flags = new Dictionary<string, Flag>(flags);
+        }
+
+        /// <summary>
+        /// Initialize the provider.
+        /// </summary>
+        /// <param name="evaluationContext">the evaluationContext</param>
+        /// <exception cref="System.Exception">on error</exception>
+        public override Task Initialize(EvaluationContext evaluationContext)
+        {
+            base.Initialize(evaluationContext);
+            _status = ProviderStatus.Ready;
+            // TODO log
+            log.debug("finished initializing provider, state: {}", state);
+        }
+
+        /// <summary>
+        /// Updating provider flags configuration, replacing existing flags.
+        /// </summary>
+        /// <param name="flags">the flags to use instead of the previous flags.</param>
+        public void UpdateFlags(Dictionary<string, Flag> flags)
+        {
+            ArgumentNullException.ThrowIfNull(flags, nameof(flags));
+            var flagsChanged = new HashSet<string>(this._flags.Keys);
+            flagsChanged.UnionWith(flags.Keys);
+            this._flags = new Dictionary<string, Flag>(flags);
+            // TODO flags changed event
+            ProviderEventDetails details = ProviderEventDetails.builder()
+                .flagsChanged(new ArrayList<>(flagsChanged))
+                .message("flags changed")
+                .build();
+            emitProviderConfigurationChanged(details);
+        }
+
+        /// <summary>
+        /// Updating provider flags configuration with adding or updating a flag.
+        /// </summary>
+        /// <param name="flags">
+        /// the flag to update. If a flag with this key already exists, new flag replaces it.
+        /// </param>
+        public void UpdateFlag(string flagKey, Flag flag)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            ArgumentNullException.ThrowIfNull(flag, nameof(flag));
+            this._flags[flagKey] = flag;
+            // TODO flag changed event
+            ProviderEventDetails details = ProviderEventDetails.builder()
+                .flagsChanged(Arrays.asList(flagKey))
+                .message("flag added/updated")
+                .build();
+            emitProviderConfigurationChanged(details);
+        }
+
+        public override Task<ResolutionDetails<bool>> ResolveBooleanValue(
+            string flagKey,
+            bool defaultValue,
+            EvaluationContext? context = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
+        }
+
+        public override Task<ResolutionDetails<string>> ResolveStringValue(
+            string flagKey,
+            string defaultValue,
+            EvaluationContext? context = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
+        }
+
+        public override Task<ResolutionDetails<int>> ResolveIntegerValue(
+            string flagkey,
+            int defaultValue,
+            EvaluationContext? context = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
+        }
+
+        public override Task<ResolutionDetails<double>> ResolveDoubleValue(
+            string flagKey,
+            double defaultValue,
+            EvaluationContext? context = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
+        }
+
+        public override Task<ResolutionDetails<Value>> ResolveStructureValue(
+            string flagKey,
+            Value defaultValue,
+            EvaluationContext? context = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
+        }
+
+
+        private ResolutionDetails<T> GetEvaluation<T>(string flagKey, T defaultValue, EvaluationContext context)
+        {
+            if (!ProviderStatus.Ready.Equals(this._status))
+            {
+                if (ProviderStatus.NotReady.Equals(this._status))
+                {
+                    // TODO? throw new ProviderNotReadyError("provider not yet initialized");
+                    return new ResolutionDetails<T>(
+                        flagKey,
+                        defaultValue,
+                        errorType: ErrorType.ProviderNotReady,
+                        // reason: "provider not yet initialized",
+                        errorMessage: "provider not yet initialized"
+                        // TODO variant: not ready
+                    );
+                }
+                // TODO? throw new GeneralError("unknown error");
+                return new ResolutionDetails<T>(
+                    flagKey,
+                    defaultValue,
+                    errorType: ErrorType.General,
+                    // reason: "unknown error",
+                    errorMessage: "unknown error"
+                    // TODO variant: general error
+                );
+            }
+
+            if (!this._flags.TryGetValue(flagKey, out var flag))
+            {
+                // TODO? throw new FlagNotFoundError("flag " + flagKey + "not found");
+                return new ResolutionDetails<T>(
+                    flagKey,
+                    defaultValue,
+                    errorType: ErrorType.FlagNotFound,
+                    // reason: $"flag {flagKey} not found",
+                    errorMessage: $"flag {flagKey} not found"
+                    // TODO variant: general error
+                );
+            }
+            
+            return flag.ContextEvaluator.Evaluate(flag, evaluationContext);
+            // return flag.Evaluate(evaluationContext);
+       }
+
+
+    }
+}
