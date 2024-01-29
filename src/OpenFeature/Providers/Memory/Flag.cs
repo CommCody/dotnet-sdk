@@ -1,4 +1,4 @@
-
+using System;
 using System.Collections.Generic;
 using OpenFeature.Model;
 
@@ -9,27 +9,38 @@ namespace OpenFeature.Providers.Memory
     /// </summary>
     public class Flag
     {
-        public Dictionary<string, object> Variants {get;}
-        public string DefaultVariant {get;}
-        public IContextEvaluator ContextEvaluator {get;}
+        public string Key { get; }
+        public Dictionary<string, object> Variants { get; }
+        public string DefaultVariant { get; }
+        public IContextEvaluator ContextEvaluator { get; }
         
-        public Flag(Dictionary<string, object> variants, string defaultVariant)
-            : this(variants, defaultVariant, DefaultContextEvaluator.Instance)
+        public Flag(string key, Dictionary<string, object> variants, string defaultVariant)
+            : this(key, variants, defaultVariant, DefaultContextEvaluator.Instance)
         {
         }
-        public Flag(Dictionary<string, object> variants, string defaultVariant, IContextEvaluator contextEvaluator)
+        public Flag(string key, Dictionary<string, object> variants, string defaultVariant, IContextEvaluator contextEvaluator)
         {
-            ArgumentNullException.ThrowIfNull(variants, nameof(variants));
-            ArgumentException.ThrowIfNullOrWhiteSpace(defaultVariant, nameof(defaultVariant));
-            ArgumentNullException.ThrowIfNull(contextEvaluator, nameof(contextEvaluator));
+            if (key is null)
+                throw new ArgumentNullException(nameof(key));
+            if (string.IsNullOrWhiteSpace(key))
+                throw new ArgumentException(nameof(key));
+            if (variants is null)
+                throw new ArgumentNullException(nameof(variants));
+            if (defaultVariant is null)
+                throw new ArgumentNullException(nameof(defaultVariant));
+            if (string.IsNullOrWhiteSpace(defaultVariant))
+                throw new ArgumentException(nameof(defaultVariant));
+            if (contextEvaluator is null)
+                throw new ArgumentNullException(nameof(contextEvaluator));
+            this.Key = key;
             this.Variants = variants;
             this.DefaultVariant = defaultVariant;
             this.ContextEvaluator = contextEvaluator;
         }
         
         // Optional?
-        public virtual ResolutionDetails<T> Evaluate<T>(EvaluationContext evaluationContext)
-            => this.ContextEvaluator.Evaluate<T>(this, evaluationContext);
+        public virtual ResolutionDetails<T> Evaluate<T>(T defaultValue, EvaluationContext evaluationContext)
+            => this.ContextEvaluator.Evaluate<T>(this.Key, defaultValue, this, evaluationContext);
     }
 
     // public class Flag<T>

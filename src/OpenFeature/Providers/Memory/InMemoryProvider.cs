@@ -1,8 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using OpenFeature.Constant;
 using OpenFeature.Model;
-
 
 namespace OpenFeature.Providers.Memory
 {
@@ -14,7 +15,7 @@ namespace OpenFeature.Providers.Memory
 
         private readonly Metadata _metadata = new Metadata(InMemoryProvider.InMemoryProvidername);
 
-        private readonly Dictionary<string, Flag> _flags;
+        private Dictionary<string, Flag> _flags;
 
         private ProviderStatus _status = ProviderStatus.NotReady;
         
@@ -24,10 +25,11 @@ namespace OpenFeature.Providers.Memory
             return this._metadata;
         }
 
-        public InMemoryFeatureProvider(Dictionary<string, Flag> flags)
+        public InMemoryFeatureProvider(IEnumerable<Flag> flags)
         {
-            ArgumentNullException.ThrowIfNull(flags, nameof(flags));
-            this._flags = new Dictionary<string, Flag>(flags);
+            if (flags is null)
+                throw new ArgumentNullException(nameof(flags));
+            this._flags = flags.ToDictionary(flag => flag.Key);
         }
 
         /// <summary>
@@ -37,91 +39,93 @@ namespace OpenFeature.Providers.Memory
         /// <exception cref="System.Exception">on error</exception>
         public override Task Initialize(EvaluationContext evaluationContext)
         {
-            base.Initialize(evaluationContext);
             _status = ProviderStatus.Ready;
             // TODO log
-            log.debug("finished initializing provider, state: {}", state);
+            // log.debug("finished initializing provider, state: {}", state);
+            return Task.CompletedTask;
         }
 
         /// <summary>
         /// Updating provider flags configuration, replacing existing flags.
         /// </summary>
         /// <param name="flags">the flags to use instead of the previous flags.</param>
-        public void UpdateFlags(Dictionary<string, Flag> flags)
+        public void UpdateFlags(IEnumerable<Flag> flags)
         {
-            ArgumentNullException.ThrowIfNull(flags, nameof(flags));
+            if (flags is null)
+                throw new ArgumentNullException(nameof(flags));
+            var newFlags = flags.ToDictionary(flag => flag.Key);
             var flagsChanged = new HashSet<string>(this._flags.Keys);
-            flagsChanged.UnionWith(flags.Keys);
-            this._flags = new Dictionary<string, Flag>(flags);
+            flagsChanged.UnionWith(newFlags.Keys);
+            this._flags = newFlags;
             // TODO flags changed event
-            ProviderEventDetails details = ProviderEventDetails.builder()
-                .flagsChanged(new ArrayList<>(flagsChanged))
-                .message("flags changed")
-                .build();
-            emitProviderConfigurationChanged(details);
+            // ProviderEventDetails details = ProviderEventDetails.builder()
+            //     .flagsChanged(new ArrayList<>(flagsChanged))
+            //     .message("flags changed")
+            //     .build();
+            // emitProviderConfigurationChanged(details);
         }
 
         /// <summary>
         /// Updating provider flags configuration with adding or updating a flag.
         /// </summary>
-        /// <param name="flags">
+        /// <param name="flag">
         /// the flag to update. If a flag with this key already exists, new flag replaces it.
         /// </param>
-        public void UpdateFlag(string flagKey, Flag flag)
+        public void UpdateFlag(Flag flag)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
-            ArgumentNullException.ThrowIfNull(flag, nameof(flag));
-            this._flags[flagKey] = flag;
+            if (flag is null)
+                throw new ArgumentNullException(nameof(flag));
+            this._flags[flag.Key] = flag;
             // TODO flag changed event
-            ProviderEventDetails details = ProviderEventDetails.builder()
-                .flagsChanged(Arrays.asList(flagKey))
-                .message("flag added/updated")
-                .build();
-            emitProviderConfigurationChanged(details);
+            // ProviderEventDetails details = ProviderEventDetails.builder()
+            //     .flagsChanged(Arrays.asList(flagKey))
+            //     .message("flag added/updated")
+            //     .build();
+            // emitProviderConfigurationChanged(details);
         }
 
         public override Task<ResolutionDetails<bool>> ResolveBooleanValue(
             string flagKey,
             bool defaultValue,
-            EvaluationContext? context = null)
+            EvaluationContext context = null)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            // ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
         public override Task<ResolutionDetails<string>> ResolveStringValue(
             string flagKey,
             string defaultValue,
-            EvaluationContext? context = null)
+            EvaluationContext context = null)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            // ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
         public override Task<ResolutionDetails<int>> ResolveIntegerValue(
-            string flagkey,
+            string flagKey,
             int defaultValue,
-            EvaluationContext? context = null)
+            EvaluationContext context = null)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            // ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
         public override Task<ResolutionDetails<double>> ResolveDoubleValue(
             string flagKey,
             double defaultValue,
-            EvaluationContext? context = null)
+            EvaluationContext context = null)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            // ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
         public override Task<ResolutionDetails<Value>> ResolveStructureValue(
             string flagKey,
             Value defaultValue,
-            EvaluationContext? context = null)
+            EvaluationContext context = null)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
+            // ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
@@ -166,10 +170,8 @@ namespace OpenFeature.Providers.Memory
                 );
             }
             
-            return flag.ContextEvaluator.Evaluate(flag, evaluationContext);
-            // return flag.Evaluate(evaluationContext);
+            // return flag.ContextEvaluator.Evaluate<T>(flagKey, defaultValue, flag, context);
+            return flag.Evaluate(defaultValue, context);
        }
-
-
     }
 }
