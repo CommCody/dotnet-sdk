@@ -10,6 +10,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using OpenFeature.Constant;
 using OpenFeature.Model;
+using OpenFeature.Providers.Memory;
 using OpenFeature.Tests.Internal;
 using Xunit;
 
@@ -48,7 +49,7 @@ namespace OpenFeature.Tests
             clientHook.Finally(Arg.Any<HookContext<bool>>(), Arg.Any<IReadOnlyDictionary<string, object>>()).Returns(Task.CompletedTask);
             apiHook.Finally(Arg.Any<HookContext<bool>>(), Arg.Any<IReadOnlyDictionary<string, object>>()).Returns(Task.CompletedTask);
 
-            var testProvider = new TestProvider();
+            var testProvider = new InMemoryFeatureProvider();
             testProvider.AddHook(providerHook);
             Api.Instance.AddHooks(apiHook);
             await Api.Instance.SetProviderAsync(testProvider);
@@ -298,7 +299,7 @@ namespace OpenFeature.Tests
             var hook3 = Substitute.For<Hook>();
             var hook4 = Substitute.For<Hook>();
 
-            var testProvider = new TestProvider();
+            var testProvider = new InMemoryFeatureProvider();
             testProvider.AddHook(hook4);
             Api.Instance.AddHooks(hook1);
             await Api.Instance.SetProviderAsync(testProvider);

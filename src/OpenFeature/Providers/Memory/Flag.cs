@@ -14,10 +14,12 @@ namespace OpenFeature.Providers.Memory
         public string DefaultVariant { get; }
         public IContextEvaluator ContextEvaluator { get; }
         
+        public Flag(string key, object value)
+            : this(key, new Dictionary<string, object>{ {"default", value}}, "default", DefaultContextEvaluator.Instance)
+        { }
         public Flag(string key, Dictionary<string, object> variants, string defaultVariant)
             : this(key, variants, defaultVariant, DefaultContextEvaluator.Instance)
-        {
-        }
+        { }
         public Flag(string key, Dictionary<string, object> variants, string defaultVariant, IContextEvaluator contextEvaluator)
         {
             if (key is null)

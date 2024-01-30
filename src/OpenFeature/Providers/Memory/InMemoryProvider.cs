@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using OpenFeature.Constant;
@@ -13,16 +14,32 @@ namespace OpenFeature.Providers.Memory
     /// <seealso href="https://openfeature.dev/specification/appendix-a#in-memory-provider">In Memory Provider specification</seealso>
     public class InMemoryFeatureProvider : FeatureProvider {
 
-        private readonly Metadata _metadata = new Metadata(InMemoryProvider.InMemoryProvidername);
+        private readonly Metadata _metadata = new Metadata(InMemoryProvider.InMemoryProviderName);
 
         private Dictionary<string, Flag> _flags;
 
         private ProviderStatus _status = ProviderStatus.NotReady;
-        
+
+        /// <inheritdoc/>
+        // public override IImmutableList<Hook> GetProviderHooks()
+        // {
+        //     return base.GetProviderHooks();
+        // }
+
+        /// <inheritdoc/>
         public override ProviderStatus GetStatus() => this._status;
 
+        /// <inheritdoc/>
         public override Metadata GetMetadata() {
             return this._metadata;
+        }
+
+        public InMemoryFeatureProvider()
+        { }
+
+        public InMemoryFeatureProvider(string name)
+        {
+            _metadata = new Metadata(name);
         }
 
         public InMemoryFeatureProvider(IEnumerable<Flag> flags)
@@ -36,20 +53,28 @@ namespace OpenFeature.Providers.Memory
         /// Initialize the provider.
         /// </summary>
         /// <param name="evaluationContext">the evaluationContext</param>
-        /// <exception cref="System.Exception">on error</exception>
-        public override Task Initialize(EvaluationContext evaluationContext)
+        /// <exception cref="Exception">on error</exception>
+        public override async Task Initialize(EvaluationContext evaluationContext)
         {
             _status = ProviderStatus.Ready;
+            var @event = new ProviderEventPayload
+            {
+                Type = ProviderEventTypes.ProviderReady,
+                ProviderName = _metadata.Name,
+                FlagsChanged = new List<string>(),
+                // Message = ???,
+                // EventMetadata = ???
+            };
+            await this.EventChannel.Writer.WriteAsync(@event).ConfigureAwait(false);
             // TODO log
             // log.debug("finished initializing provider, state: {}", state);
-            return Task.CompletedTask;
         }
 
         /// <summary>
         /// Updating provider flags configuration, replacing existing flags.
         /// </summary>
         /// <param name="flags">the flags to use instead of the previous flags.</param>
-        public void UpdateFlags(IEnumerable<Flag> flags)
+        public async ValueTask UpdateFlags(IEnumerable<Flag> flags)
         {
             if (flags is null)
                 throw new ArgumentNullException(nameof(flags));
@@ -57,12 +82,15 @@ namespace OpenFeature.Providers.Memory
             var flagsChanged = new HashSet<string>(this._flags.Keys);
             flagsChanged.UnionWith(newFlags.Keys);
             this._flags = newFlags;
-            // TODO flags changed event
-            // ProviderEventDetails details = ProviderEventDetails.builder()
-            //     .flagsChanged(new ArrayList<>(flagsChanged))
-            //     .message("flags changed")
-            //     .build();
-            // emitProviderConfigurationChanged(details);
+            var @event = new ProviderEventPayload
+            {
+                Type = ProviderEventTypes.ProviderConfigurationChanged,
+                ProviderName = _metadata.Name,
+                FlagsChanged = flagsChanged.ToList(),
+                Message = "flags changed",
+                // EventMetadata = ???
+            };
+            await this.EventChannel.Writer.WriteAsync(@event).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -71,19 +99,23 @@ namespace OpenFeature.Providers.Memory
         /// <param name="flag">
         /// the flag to update. If a flag with this key already exists, new flag replaces it.
         /// </param>
-        public void UpdateFlag(Flag flag)
+        public async ValueTask UpdateFlag(Flag flag)
         {
             if (flag is null)
                 throw new ArgumentNullException(nameof(flag));
             this._flags[flag.Key] = flag;
-            // TODO flag changed event
-            // ProviderEventDetails details = ProviderEventDetails.builder()
-            //     .flagsChanged(Arrays.asList(flagKey))
-            //     .message("flag added/updated")
-            //     .build();
-            // emitProviderConfigurationChanged(details);
+            var @event = new ProviderEventPayload
+            {
+                Type = ProviderEventTypes.ProviderConfigurationChanged,
+                ProviderName = _metadata.Name,
+                FlagsChanged = new List<string>{flag.Key},
+                Message = "flag added/updated",
+                // EventMetadata = ???
+            };
+            await this.EventChannel.Writer.WriteAsync(@event).ConfigureAwait(false);
         }
 
+        /// <inheritdoc/>
         public override Task<ResolutionDetails<bool>> ResolveBooleanValue(
             string flagKey,
             bool defaultValue,
@@ -93,6 +125,7 @@ namespace OpenFeature.Providers.Memory
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
+        /// <inheritdoc/>
         public override Task<ResolutionDetails<string>> ResolveStringValue(
             string flagKey,
             string defaultValue,
@@ -102,6 +135,7 @@ namespace OpenFeature.Providers.Memory
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
+        /// <inheritdoc/>
         public override Task<ResolutionDetails<int>> ResolveIntegerValue(
             string flagKey,
             int defaultValue,
@@ -111,6 +145,7 @@ namespace OpenFeature.Providers.Memory
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
+        /// <inheritdoc/>
         public override Task<ResolutionDetails<double>> ResolveDoubleValue(
             string flagKey,
             double defaultValue,
@@ -120,6 +155,7 @@ namespace OpenFeature.Providers.Memory
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
 
+        /// <inheritdoc/>
         public override Task<ResolutionDetails<Value>> ResolveStructureValue(
             string flagKey,
             Value defaultValue,
@@ -128,7 +164,6 @@ namespace OpenFeature.Providers.Memory
             // ArgumentException.ThrowIfNullOrWhiteSpace(flagKey, nameof(flagKey));
             return Task.FromResult(GetEvaluation(flagKey, defaultValue, context));
         }
-
 
         private ResolutionDetails<T> GetEvaluation<T>(string flagKey, T defaultValue, EvaluationContext context)
         {
@@ -173,5 +208,22 @@ namespace OpenFeature.Providers.Memory
             // return flag.ContextEvaluator.Evaluate<T>(flagKey, defaultValue, flag, context);
             return flag.Evaluate(defaultValue, context);
        }
+        
+        // EXTRA
+        private readonly List<Hook> _hooks = new List<Hook>();
+        /// <inheritdoc/>
+        public void AddHook(Hook hook) => this._hooks.Add(hook);
+
+        /// <inheritdoc/>
+        public override IImmutableList<Hook> GetProviderHooks() => this._hooks.ToImmutableList();
+        /// <inheritdoc/>
+        public void SetStatus(ProviderStatus status)
+        {
+            this._status = status;
+        }
+        internal void SendEvent(ProviderEventTypes eventType)
+        {
+            this.EventChannel.Writer.WriteAsync(new ProviderEventPayload { Type = eventType, ProviderName = this.GetMetadata().Name });
+        }
     }
 }

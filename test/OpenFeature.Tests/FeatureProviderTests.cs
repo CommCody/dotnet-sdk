@@ -5,6 +5,7 @@ using FluentAssertions;
 using NSubstitute;
 using OpenFeature.Constant;
 using OpenFeature.Model;
+using OpenFeature.Providers.Memory;
 using OpenFeature.Tests.Internal;
 using Xunit;
 
@@ -17,9 +18,9 @@ namespace OpenFeature.Tests
         [Specification("2.1.1", "The provider interface MUST define a `metadata` member or accessor, containing a `name` field or accessor of type string, which identifies the provider implementation.")]
         public void Provider_Must_Have_Metadata()
         {
-            var provider = new TestProvider();
+            var provider = new InMemoryFeatureProvider();
 
-            provider.GetMetadata().Name.Should().Be(TestProvider.DefaultName);
+            provider.GetMetadata().Name.Should().Be(InMemoryProvider.InMemoryProviderName);
         }
 
         [Fact]

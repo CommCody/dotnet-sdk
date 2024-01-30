@@ -9,6 +9,6 @@ namespace OpenFeature.Constant
     
     internal static class InMemoryProvider 
     {
-        public const string InMemoryProvidername = "InMemoryProvider";
+        public const string InMemoryProviderName = "InMemoryProvider";
     }
 }

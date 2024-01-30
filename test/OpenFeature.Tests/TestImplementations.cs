@@ -33,7 +33,7 @@ namespace OpenFeature.Tests
         }
     }
 
-    public class TestProvider : FeatureProvider
+/*     public class TestProvider : FeatureProvider
     {
         private readonly List<Hook> _hooks = new List<Hook>();
 
@@ -115,5 +115,5 @@ namespace OpenFeature.Tests
         {
             this.EventChannel.Writer.WriteAsync(new ProviderEventPayload { Type = eventType, ProviderName = this.GetMetadata().Name });
         }
-    }
+    } */
 }

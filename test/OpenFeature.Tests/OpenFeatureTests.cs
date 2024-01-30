@@ -4,6 +4,7 @@ using FluentAssertions;
 using NSubstitute;
 using OpenFeature.Constant;
 using OpenFeature.Model;
+using OpenFeature.Providers.Memory;
 using OpenFeature.Tests.Internal;
 using Xunit;
 
@@ -96,13 +97,13 @@ namespace OpenFeature.Tests
             var openFeature = Api.Instance;
 
             await openFeature.SetProviderAsync(new NoOpFeatureProvider()).ConfigureAwait(false);
-            await openFeature.SetProviderAsync(TestProvider.DefaultName, new TestProvider()).ConfigureAwait(false);
+            await openFeature.SetProviderAsync(InMemoryProvider.InMemoryProviderName, new InMemoryFeatureProvider()).ConfigureAwait(false);
 
             var defaultClient = openFeature.GetProviderMetadata();
-            var namedClient = openFeature.GetProviderMetadata(TestProvider.DefaultName);
+            var namedClient = openFeature.GetProviderMetadata(InMemoryProvider.InMemoryProviderName);
 
             defaultClient.Name.Should().Be(NoOpProvider.NoOpProviderName);
-            namedClient.Name.Should().Be(TestProvider.DefaultName);
+            namedClient.Name.Should().Be(InMemoryProvider.InMemoryProviderName);
         }
 
         [Fact]
@@ -111,11 +112,11 @@ namespace OpenFeature.Tests
         {
             var openFeature = Api.Instance;
 
-            await openFeature.SetProviderAsync(new TestProvider()).ConfigureAwait(false);
+            await openFeature.SetProviderAsync(new InMemoryFeatureProvider()).ConfigureAwait(false);
 
             var defaultClient = openFeature.GetProviderMetadata();
 
-            defaultClient.Name.Should().Be(TestProvider.DefaultName);
+            defaultClient.Name.Should().Be(InMemoryProvider.InMemoryProviderName);
         }
 
         [Fact]
@@ -125,7 +126,7 @@ namespace OpenFeature.Tests
             const string name = "new-client";
             var openFeature = Api.Instance;
 
-            await openFeature.SetProviderAsync(name, new TestProvider()).ConfigureAwait(true);
+            await openFeature.SetProviderAsync(name, new InMemoryFeatureProvider()).ConfigureAwait(true);
             await openFeature.SetProviderAsync(name, new NoOpFeatureProvider()).ConfigureAwait(true);
 
             openFeature.GetProviderMetadata(name).Name.Should().Be(NoOpProvider.NoOpProviderName);
@@ -136,7 +137,7 @@ namespace OpenFeature.Tests
         public async Task OpenFeature_Should_Allow_Multiple_Client_Names_Of_Same_Instance()
         {
             var openFeature = Api.Instance;
-            var provider = new TestProvider();
+            var provider = new InMemoryFeatureProvider();
 
             await openFeature.SetProviderAsync("a", provider).ConfigureAwait(true);
             await openFeature.SetProviderAsync("b", provider).ConfigureAwait(true);
@@ -230,7 +231,7 @@ namespace OpenFeature.Tests
         {
             var openFeature = Api.Instance;
 
-            await openFeature.SetProviderAsync("client1", new TestProvider()).ConfigureAwait(true);
+            await openFeature.SetProviderAsync("client1", new InMemoryFeatureProvider(new[] {new Flag("test", true)})).ConfigureAwait(true);
             await openFeature.SetProviderAsync("client2", new NoOpFeatureProvider()).ConfigureAwait(true);
 
             var client1 = openFeature.GetClient("client1");
